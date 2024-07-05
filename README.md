@@ -28,10 +28,10 @@ Have fun and good luck!
 
 ## Installation
 
-1. Clone the project repository
+1. Fork the project repository
 2. Copy the `.env.example` file to `.env`
 3. Build the application `docker compose build`
 4. Run docker compose to start the application `docker compose up -d`
 5. Once the application is up and running, you can access the REST API at http://localhost:50010. Use tools like Postman or curl to interact with the API.
 6. `curl -v http://localhost:50010/health` to ensure your application is running.
-7. create a new branch with your name and start the test.
+7. send us the link to your repository with the api.
