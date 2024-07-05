@@ -34,3 +34,4 @@ Have fun and good luck!
 4. Run docker compose to start the application `docker compose up -d`
 5. Once the application is up and running, you can access the REST API at http://localhost:50010. Use tools like Postman or curl to interact with the API.
 6. `curl -v http://localhost:50010/health` to ensure your application is running.
+7. create a new branch with your name and start the test.
