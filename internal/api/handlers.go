@@ -39,7 +39,7 @@ func GetBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(breed)
 }
 
-func GetBreeds(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func GetBreedsHanlder(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	rows, err := db.Query(database.GetAllBreedsQuery)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -65,4 +65,31 @@ func GetBreeds(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(breeds)
+}
+
+func CreateBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	var breed Breed
+	err := json.NewDecoder(r.Body).Decode(&breed)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	query := database.CreateBreedQuery
+	result, err := db.Exec(query, breed.Species, breed.PetSize, breed.Name, breed.AverageMaleAdultWeight, breed.AverageFemaleAdultWeight)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	lastID, err := result.LastInsertId()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	breed.ID = int(lastID)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(breed)
 }
