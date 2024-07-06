@@ -57,6 +57,13 @@ func main() {
 
 	logger.Info("Database connected")
 
+	// Load breeds data from CSV
+	err = database_actions.LoadBreedsFromCSV(db, "breeds.csv")
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	logger.Info("Breeds data loaded")
+
 	app := internal.NewApp(logger)
 
 	r := mux.NewRouter()
