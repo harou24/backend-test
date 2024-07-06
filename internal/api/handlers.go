@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/japhy-tech/backend-test/internal/database"
 	"net/http"
@@ -127,4 +128,59 @@ func DeleteBreed(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func SearchBreedsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+	queryParams := r.URL.Query()
+	species := queryParams.Get("species")
+	weight := queryParams.Get("weight")
+	weightQuery := ""
+	weightArgs := []any{}
+
+	if weight != "" {
+		weightQuery = " WHERE (average_male_adult_weight = ? OR average_female_adult_weight = ?)"
+		weightInt, err := strconv.Atoi(weight)
+		if err != nil {
+			http.Error(w, "Invalid weight parameter", http.StatusBadRequest)
+			return
+		}
+		weightArgs = append(weightArgs, weightInt, weightInt)
+	}
+
+	if species != "" {
+		if weightQuery != "" {
+			weightQuery += " AND species=?"
+		} else {
+			weightQuery += " WHERE species=?"
+		}
+		weightArgs = append(weightArgs, species)
+	}
+
+	query := fmt.Sprintf("SELECT id, species, pet_size, name, average_male_adult_weight, average_female_adult_weight FROM breeds %s", weightQuery)
+	rows, err := db.Query(query, weightArgs...)
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+
+	var breeds []Breed
+	for rows.Next() {
+		var b Breed
+		err := rows.Scan(&b.ID, &b.Species, &b.PetSize, &b.Name, &b.AverageMaleAdultWeight, &b.AverageFemaleAdultWeight)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		breeds = append(breeds, b)
+	}
+
+	if err := rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(breeds)
 }
