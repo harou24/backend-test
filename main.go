@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"github.com/japhy-tech/backend-test/internal/api"
 	"net"
 	"net/http"
 	"os"
@@ -71,6 +72,11 @@ func main() {
 
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	}).Methods(http.MethodGet)
+
+	// CRUD
+	r.HandleFunc("/breeds/{id}", func(w http.ResponseWriter, r *http.Request) {
+		api.GetBreedHandler(db, w, r)
 	}).Methods(http.MethodGet)
 
 	err = http.ListenAndServe(
