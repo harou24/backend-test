@@ -91,6 +91,10 @@ func main() {
 		api.UpdateBreedHandler(db, w, r)
 	}).Methods(http.MethodPut)
 
+	r.HandleFunc("/breeds/{id}", func(w http.ResponseWriter, r *http.Request) {
+		api.DeleteBreed(db, w, r)
+	}).Methods(http.MethodDelete)
+
 	err = http.ListenAndServe(
 		net.JoinHostPort("", ApiPort),
 		r,
