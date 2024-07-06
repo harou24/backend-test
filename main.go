@@ -79,6 +79,10 @@ func main() {
 		api.GetBreedHandler(db, w, r)
 	}).Methods(http.MethodGet)
 
+	r.HandleFunc("/breeds", func(w http.ResponseWriter, r *http.Request) {
+		api.GetBreeds(db, w, r)
+	}).Methods(http.MethodGet)
+
 	err = http.ListenAndServe(
 		net.JoinHostPort("", ApiPort),
 		r,
