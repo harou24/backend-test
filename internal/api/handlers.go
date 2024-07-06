@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"github.com/gorilla/mux"
+	"github.com/japhy-tech/backend-test/internal/database"
 	"net/http"
 	"strconv"
 )
@@ -24,7 +25,7 @@ func GetBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	id, _ := strconv.Atoi(params["id"])
 
 	var breed Breed
-	row := db.QueryRow("SELECT id, species, pet_size, name, average_male_adult_weight, average_female_adult_weight FROM breeds WHERE id=?", id)
+	row := db.QueryRow(database.GetBreedByIdQuery, id)
 	err := row.Scan(&breed.ID, &breed.Species, &breed.PetSize, &breed.Name, &breed.AverageMaleWeight, &breed.AverageFemaleWeight)
 	if err != nil {
 		if err == sql.ErrNoRows {
