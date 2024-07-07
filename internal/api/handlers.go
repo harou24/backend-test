@@ -1,66 +1,47 @@
 package api
 
 import (
-	"database/sql"
 	"encoding/json"
-	"fmt"
 	"github.com/gorilla/mux"
-	"github.com/japhy-tech/backend-test/internal/database"
+	"github.com/japhy-tech/backend-test/internal/domain"
 	"net/http"
 	"strconv"
 )
 
-type Breed struct {
-	ID                       int    `json:"id"`
-	Species                  string `json:"species"`
-	PetSize                  string `json:"pet_size"`
-	Name                     string `json:"name"`
-	AverageMaleAdultWeight   int    `json:"average_male_adult_weight"`
-	AverageFemaleAdultWeight int    `json:"average_female_adult_weight"`
+type BreedHandler struct {
+	breedRepository domain.BreedRepository
 }
 
-// Get a single breed by ID from the database
-func GetBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	params := mux.Vars(r)
-	id, _ := strconv.Atoi(params["id"])
+func NewBreedHandler(breedRepository domain.BreedRepository) *BreedHandler {
+	return &BreedHandler{breedRepository: breedRepository}
+}
 
-	var breed Breed
-	row := db.QueryRow(database.GetBreedByIdQuery, id)
-	err := row.Scan(&breed.ID, &breed.Species, &breed.PetSize, &breed.Name, &breed.AverageMaleAdultWeight, &breed.AverageFemaleAdultWeight)
+func (h *BreedHandler) GetBreedHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	id, err := strconv.Atoi(params["id"])
 	if err != nil {
-		if err == sql.ErrNoRows {
-			http.Error(w, "Breed not found", http.StatusNotFound)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
+		http.Error(w, "Invalid breed ID", http.StatusBadRequest)
 		return
 	}
 
+	breed, err := h.breedRepository.GetBreedByID(id)
+	if err != nil {
+		if err == domain.ErrBreedNotFound {
+			http.Error(w, "Breed not found", http.StatusNotFound)
+			return
+		}
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(breed)
 }
 
-func GetBreedsHanlder(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query(database.GetAllBreedsQuery)
+func (h *BreedHandler) GetBreedsHandler(w http.ResponseWriter, r *http.Request) {
+	breeds, err := h.breedRepository.GetAllBreeds()
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var breeds []Breed
-	for rows.Next() {
-		var b Breed
-		err := rows.Scan(&b.ID, &b.Species, &b.PetSize, &b.Name, &b.AverageMaleAdultWeight, &b.AverageFemaleAdultWeight)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		breeds = append(breeds, b)
-	}
-
-	if err := rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
@@ -68,46 +49,41 @@ func GetBreedsHanlder(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(breeds)
 }
 
-func CreateBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	var breed Breed
+func (h *BreedHandler) CreateBreedHandler(w http.ResponseWriter, r *http.Request) {
+	var breed domain.Breed
 	err := json.NewDecoder(r.Body).Decode(&breed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	query := database.CreateBreedQuery
-	result, err := db.Exec(query, breed.Species, breed.PetSize, breed.Name, breed.AverageMaleAdultWeight, breed.AverageFemaleAdultWeight)
+	createdBreed, err := h.breedRepository.CreateBreed(breed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	lastID, err := result.LastInsertId()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	breed.ID = int(lastID)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(breed)
+	json.NewEncoder(w).Encode(createdBreed)
 }
 
-func UpdateBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, _ := strconv.Atoi(vars["id"])
+func (h *BreedHandler) UpdateBreedHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	id, err := strconv.Atoi(params["id"])
+	if err != nil {
+		http.Error(w, "Invalid breed ID", http.StatusBadRequest)
+		return
+	}
 
-	var breed Breed
-	err := json.NewDecoder(r.Body).Decode(&breed)
+	var breed domain.Breed
+	err = json.NewDecoder(r.Body).Decode(&breed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	query := database.UpdateBreedQuery
-	_, err = db.Exec(query, breed.Species, breed.PetSize, breed.Name, breed.AverageMaleAdultWeight, breed.AverageFemaleAdultWeight, id)
+	err = h.breedRepository.UpdateBreed(id, breed)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -116,67 +92,45 @@ func UpdateBreedHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func DeleteBreed(db *sql.DB, w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id, _ := strconv.Atoi(vars["id"])
+func (h *BreedHandler) DeleteBreedHandler(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	id, err := strconv.Atoi(params["id"])
+	if err != nil {
+		http.Error(w, "Invalid breed ID", http.StatusBadRequest)
+		return
+	}
 
-	query := database.DeleteBreedQuery
-	_, err := db.Exec(query, id)
+	err = h.breedRepository.DeleteBreed(id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
-func SearchBreedsHandler(db *sql.DB, w http.ResponseWriter, r *http.Request) {
+func (h *BreedHandler) SearchBreedsHandler(w http.ResponseWriter, r *http.Request) {
 	queryParams := r.URL.Query()
 	species := queryParams.Get("species")
-	weight := queryParams.Get("weight")
-	weightQuery := ""
-	weightArgs := []any{}
+	weightStr := queryParams.Get("weight")
 
-	if weight != "" {
-		weightQuery = " WHERE (average_male_adult_weight = ? OR average_female_adult_weight = ?)"
-		weightInt, err := strconv.Atoi(weight)
+	criteria := make(map[string]any)
+
+	if species != "" {
+		criteria["species"] = species
+	}
+
+	if weightStr != "" {
+		weightInt, err := strconv.Atoi(weightStr)
 		if err != nil {
 			http.Error(w, "Invalid weight parameter", http.StatusBadRequest)
 			return
 		}
-		weightArgs = append(weightArgs, weightInt, weightInt)
+		criteria["weight"] = weightInt
 	}
 
-	if species != "" {
-		if weightQuery != "" {
-			weightQuery += " AND species=?"
-		} else {
-			weightQuery += " WHERE species=?"
-		}
-		weightArgs = append(weightArgs, species)
-	}
-
-	query := fmt.Sprintf("SELECT id, species, pet_size, name, average_male_adult_weight, average_female_adult_weight FROM breeds %s", weightQuery)
-	rows, err := db.Query(query, weightArgs...)
-
+	breeds, err := h.breedRepository.SearchBreeds(criteria)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-
-	var breeds []Breed
-	for rows.Next() {
-		var b Breed
-		err := rows.Scan(&b.ID, &b.Species, &b.PetSize, &b.Name, &b.AverageMaleAdultWeight, &b.AverageFemaleAdultWeight)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		breeds = append(breeds, b)
-	}
-
-	if err := rows.Err(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}

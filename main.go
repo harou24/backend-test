@@ -3,8 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"github.com/japhy-tech/backend-test/internal/api"
-	"net"
+	"github.com/japhy-tech/backend-test/config"
 	"net/http"
 	"os"
 	"time"
@@ -13,11 +12,6 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/japhy-tech/backend-test/database_actions"
 	"github.com/japhy-tech/backend-test/internal"
-)
-
-const (
-	MysqlDSN = "root:root@(mysql-test:3306)/core?parseTime=true"
-	ApiPort  = "5000"
 )
 
 func main() {
@@ -30,7 +24,7 @@ func main() {
 		Level:           charmLog.DebugLevel,
 	})
 
-	err := database_actions.InitMigrator(MysqlDSN)
+	err := database_actions.InitMigrator(config.MysqlDSN)
 	if err != nil {
 		logger.Fatal(err.Error())
 	}
@@ -42,7 +36,7 @@ func main() {
 		logger.Info(msg)
 	}
 
-	db, err := sql.Open("mysql", MysqlDSN)
+	db, err := sql.Open("mysql", config.MysqlDSN)
 	if err != nil {
 		logger.Fatal(err.Error())
 		os.Exit(1)
@@ -65,45 +59,17 @@ func main() {
 	}
 	logger.Info("Breeds data loaded")
 
-	app := internal.NewApp(logger)
-
 	r := mux.NewRouter()
-	app.RegisterRoutes(r.PathPrefix("/v1").Subrouter())
-
 	r.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}).Methods(http.MethodGet)
 
-	// CRUD
-	r.HandleFunc("/breeds/{id}", func(w http.ResponseWriter, r *http.Request) {
-		api.GetBreedHandler(db, w, r)
-	}).Methods(http.MethodGet)
-
-	r.HandleFunc("/breeds", func(w http.ResponseWriter, r *http.Request) {
-		api.GetBreedsHanlder(db, w, r)
-	}).Methods(http.MethodGet)
-
-	r.HandleFunc("/breeds", func(w http.ResponseWriter, r *http.Request) {
-		api.CreateBreedHandler(db, w, r)
-	}).Methods(http.MethodPost)
-
-	r.HandleFunc("/breeds/{id}", func(w http.ResponseWriter, r *http.Request) {
-		api.UpdateBreedHandler(db, w, r)
-	}).Methods(http.MethodPut)
-
-	r.HandleFunc("/breeds/{id}", func(w http.ResponseWriter, r *http.Request) {
-		api.DeleteBreed(db, w, r)
-	}).Methods(http.MethodDelete)
-
-	r.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
-		api.SearchBreedsHandler(db, w, r)
-	}).Methods(http.MethodGet)
-
-	err = http.ListenAndServe(
-		net.JoinHostPort("", ApiPort),
-		r,
-	)
+	app := internal.NewApp(db, r, logger)
+	err = app.Start()
+	if err != nil {
+		logger.Fatal(fmt.Sprintf("Failed to start the application: %v", err))
+	}
 
 	// =============================== Starting Msg ===============================
-	logger.Info(fmt.Sprintf("Service started and listen on port %s", ApiPort))
+	logger.Info(fmt.Sprintf("Service started and listen on port %s", config.ApiPort))
 }

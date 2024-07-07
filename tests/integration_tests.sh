@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set the base URL for the API
-BASE_URL=http://localhost:50010
+BASE_URL=http://localhost:50010/v1
 
 # Function to test API GET endpoint
 test_get() {
@@ -56,19 +56,19 @@ test_delete() {
   local description=$2
 
   response=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "${BASE_URL}${endpoint}")
-  if [ "$response" == "200" ]; then
+  if [ "$response" == "204" ]; then
     echo "Test ${description}: PASS"
   else
     echo "Test ${description}: FAIL"
-    echo "Expected: 200"
+    echo "Expected: 204"
     echo "Actual:   $response"
   fi
 }
 
 # Test cases for reading
-test_get "/search?species=cat" "searching by species"
-test_get "/search?weight=5000" "searching by weight"
-test_get "/search?species=cat&weight=5000" "searching by species and weight"
+test_get "/breeds/search?species=cat" "searching by species"
+test_get "/breeds/search?weight=5000" "searching by weight"
+test_get "/breeds/search?species=cat&weight=5000" "searching by species and weight"
 
 # Test cases for creating
 new_breed='{"species":"dog","pet_size":"medium","name":"Beagle","average_male_adult_weight":10000,"average_female_adult_weight":9000}'
