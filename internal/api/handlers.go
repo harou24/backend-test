@@ -39,13 +39,27 @@ func (h *BreedHandler) GetBreedHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *BreedHandler) GetBreedsHandler(w http.ResponseWriter, r *http.Request) {
-	breeds, err := h.breedRepository.GetAllBreeds()
+	pageStr := r.URL.Query().Get("page")
+	limitStr := r.URL.Query().Get("limit")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page < 1 {
+		page = 1
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit < 1 {
+		limit = 10
+	}
+
+	breeds, totalCount, err := h.breedRepository.GetAllBreeds(page, limit)
 	if err != nil {
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("X-Total-Count", strconv.Itoa(totalCount))
 	json.NewEncoder(w).Encode(breeds)
 }
 
@@ -89,7 +103,14 @@ func (h *BreedHandler) UpdateBreedHandler(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
+	updatedBreed, err := h.breedRepository.GetBreedByID(id)
+	if err != nil {
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedBreed)
 }
 
 func (h *BreedHandler) DeleteBreedHandler(w http.ResponseWriter, r *http.Request) {

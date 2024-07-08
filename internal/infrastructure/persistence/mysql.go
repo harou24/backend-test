@@ -30,11 +30,20 @@ func (r *MysqlBreedRepository) GetBreedByID(id int) (*domain.Breed, error) {
 
 	return &breed, nil
 }
+func (r *MysqlBreedRepository) GetAllBreeds(page, limit int) ([]domain.Breed, int, error) {
+	offset := (page - 1) * limit
 
-func (r *MysqlBreedRepository) GetAllBreeds() ([]domain.Breed, error) {
-	rows, err := r.db.Query(GetAllBreedsQuery)
+	// Query total count of items
+	var totalCount int
+	err := r.db.QueryRow("SELECT COUNT(*) FROM breeds").Scan(&totalCount)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
+	}
+
+	// Query paginated data
+	rows, err := r.db.Query("SELECT id, species, pet_size, name, average_male_adult_weight, average_female_adult_weight FROM breeds LIMIT ? OFFSET ?", limit, offset)
+	if err != nil {
+		return nil, 0, err
 	}
 	defer rows.Close()
 
@@ -43,16 +52,16 @@ func (r *MysqlBreedRepository) GetAllBreeds() ([]domain.Breed, error) {
 		var breed domain.Breed
 		err := rows.Scan(&breed.ID, &breed.Species, &breed.PetSize, &breed.Name, &breed.AverageMaleAdultWeight, &breed.AverageFemaleAdultWeight)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		breeds = append(breeds, breed)
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
-	return breeds, nil
+	return breeds, totalCount, nil
 }
 
 func (r *MysqlBreedRepository) CreateBreed(breed domain.Breed) (*domain.Breed, error) {

@@ -28,6 +28,8 @@ func NewApp(db *sql.DB, router *mux.Router, logger *charmLog.Logger) *App {
 func (a *App) Start() error {
 	breedRepository := persistence.NewMysqlBreedRepository(a.db)
 	breedHandler := api.NewBreedHandler(breedRepository)
+	a.router.Use(api.EnableCORS)
+
 	api.RegisterRoutes(a.router.PathPrefix("/v1").Subrouter(), breedHandler)
 
 	err := http.ListenAndServe(
